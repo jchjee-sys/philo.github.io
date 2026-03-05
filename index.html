@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>철학의 환율 계산기</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Noto Sans KR", sans-serif;
+    background: #f2f4f6;
+    margin: 0;
+    padding: 15px;
+}
+.app {
+    max-width: 420px;
+    margin: auto;
+    background: #fff;
+    padding: 20px;
+    border-radius: 14px;
+    box-shadow: 0 6px 15px rgba(0,0,0,.08);
+}
+h1 {
+    text-align: center;
+    font-size: 22px;
+}
+input, select, button {
+    width: 100%;
+    padding: 12px;
+    margin-top: 10px;
+    font-size: 16px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+}
+button {
+    background: #2f80ed;
+    color: #fff;
+    border: none;
+    font-weight: bold;
+}
+.swap {
+    background: #eee;
+    color: #333;
+    font-weight: bold;
+}
+.result {
+    margin-top: 15px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+}
+.small {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #666;
+    text-align: center;
+}
+</style>
+</head>
+
+<body>
+<div class="app">
+<h1>환율 계산기</h1>
+
+<input type="number" id="amount" placeholder="금액 입력">
+
+<select id="from">
+  <option value="KRW">KRW (원)</option>
+  <option value="USD">USD (달러)</option>
+  <option value="CNY">CNY (위안)</option>
+  <option value="JPY">JPY (엔)</option>
+  <option value="EUR">EUR (유로)</option>
+</select>
+
+<button class="swap" onclick="swapCurrency()">⇅ 통화 전환</button>
+
+<select id="to">
+  <option value="USD">USD (달러)</option>
+  <option value="KRW">KRW (원)</option>
+  <option value="CNY">CNY (위안)</option>
+  <option value="JPY">JPY (엔)</option>
+  <option value="EUR">EUR (유로)</option>
+</select>
+
+<input type="number" id="fee" placeholder="환전 수수료 (%)">
+
+<button onclick="convert()">계산하기</button>
+
+<div class="result" id="result">환율 불러오는 중…</div>
+<div class="small" id="time"></div>
+</div>
+
+<script>
+let rates = null;
+let lastTime = "";
+
+async function loadRates() {
+    try {
+        const res = await fetch("https://open.er-api.com/v6/latest/KRW");
+        const data = await res.json();
+        rates = data.rates;
+        lastTime = new Date().toLocaleString();
+        localStorage.setItem("rates", JSON.stringify(rates));
+        localStorage.setItem("time", lastTime);
+        document.getElementById("result").innerText = "환율 로드 완료";
+        document.getElementById("time").innerText = "업데이트: " + lastTime;
+    } catch {
+        rates = JSON.parse(localStorage.getItem("rates"));
+        lastTime = localStorage.getItem("time");
+        document.getElementById("result").innerText = "오프라인 환율 사용 중";
+        document.getElementById("time").innerText = "마지막 업데이트: " + lastTime;
+    }
+}
+loadRates();
+
+function swapCurrency() {
+    const from = document.getElementById("from");
+    const to = document.getElementById("to");
+
+    const temp = from.value;
+    from.value = to.value;
+    to.value = temp;
+
+    // 금액도 자동 재계산
+    convert();
+}
+
+function convert() {
+    if (!rates) {
+        document.getElementById("result").innerText = "환율 로딩 중입니다";
+        return;
+    }
+
+    const amount = Number(document.getElementById("amount").value);
+    const from = document.getElementById("from").value;
+    const to = document.getElementById("to").value;
+    const fee = Number(document.getElementById("fee").value || 0);
+
+    if (!amount) {
+        document.getElementById("result").innerText = "금액을 입력하세요";
+        return;
+    }
+
+    if (from === to) {
+        document.getElementById("result").innerText =
+            amount.toLocaleString() + " " + to;
+        return;
+    }
+
+    let krw = from === "KRW" ? amount : amount / rates[from];
+    let result = to === "KRW" ? krw : krw * rates[to];
+
+    result -= result * (fee / 100);
+
+    document.getElementById("result").innerText =
+        result.toLocaleString() + " " + to;
+}
+</script>
+</body>
+</html>
