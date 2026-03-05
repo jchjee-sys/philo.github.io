@@ -1,8 +1,15 @@
 {
-"name": "환율 계산기",
-"short_name": "환율",
-"start_url": "index.html",
-"display": "standalone",
-"background_color": "#ffffff",
-"theme_color": "#2f80ed"
+"name":"환율 계산기",
+"short_name":"환율",
+"start_url":"./index.html",
+"display":"standalone",
+"background_color":"#0f172a",
+"theme_color":"#0f172a",
+"icons":[
+{
+"src":"icon.png",
+"type":"image/png",
+"sizes":"192x192"
+}
+]
 }

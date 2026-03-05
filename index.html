@@ -4,112 +4,151 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>환율 계산기 Pro</title>
+<title>환율 계산기 PRO</title>
 
-<link rel="manifest" href="manifest.json">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 
 body{
-font-family:-apple-system,BlinkMacSystemFont,"Noto Sans KR",sans-serif;
-background:#f2f4f6;
-margin:0;
+font-family:Arial;
+background:#0f172a;
+color:white;
+text-align:center;
 padding:20px;
 }
 
-.app{
+.container{
 max-width:420px;
 margin:auto;
-background:white;
+background:#1e293b;
 padding:20px;
 border-radius:15px;
-box-shadow:0 10px 25px rgba(0,0,0,.08);
 }
 
-h1{
-text-align:center;
-margin-bottom:10px;
-}
-
-input,select,button{
+input,select{
 width:100%;
-padding:12px;
-margin-top:10px;
-font-size:16px;
+padding:10px;
+margin:8px 0;
 border-radius:8px;
-border:1px solid #ccc;
+border:none;
+font-size:16px;
 }
 
 button{
-background:#2f80ed;
-color:white;
+padding:10px;
+margin:5px;
 border:none;
+border-radius:8px;
+background:#38bdf8;
+color:black;
 font-weight:bold;
+cursor:pointer;
 }
 
-.swap{
-background:#eee;
-color:#333;
-}
-
-.result{
+#result{
 font-size:22px;
-font-weight:bold;
-text-align:center;
-margin-top:15px;
+margin-top:10px;
 }
 
 .rate{
-text-align:center;
-color:#666;
 font-size:14px;
+opacity:0.8;
 }
 
 .history{
+text-align:left;
 margin-top:20px;
 font-size:14px;
 }
 
-.history div{
-padding:5px 0;
-border-bottom:1px solid #eee;
+canvas{
+margin-top:20px;
 }
 
 </style>
+
 </head>
 
 <body>
 
-<div class="app">
+<div class="container">
 
-<h1>환율 계산기</h1>
+<h2>💱 환율 계산기 PRO</h2>
 
-<input id="amount" type="number" placeholder="금액">
+<input id="search" placeholder="통화 검색 (USD, KRW, JPY...)">
+
+<input id="amount" type="number" placeholder="금액 입력">
 
 <select id="from"></select>
 
-<button class="swap" onclick="swap()">⇅ 통화 전환</button>
+<button onclick="swap()">🔄 통화 전환</button>
 
 <select id="to"></select>
 
-<input id="fee" type="number" placeholder="수수료 (%)">
+<div>
 
 <button onclick="convert()">계산</button>
 
 <button onclick="loadRates()">환율 새로고침</button>
 
-<div class="rate" id="rate"></div>
+</div>
 
-<div class="result" id="result"></div>
+<div id="result"></div>
 
-<div class="history" id="history"></div>
+<div class="rate" id="rateInfo"></div>
+
+<canvas id="chart"></canvas>
+
+<div class="history">
+
+<h4>최근 계산</h4>
+
+<ul id="history"></ul>
+
+</div>
 
 </div>
 
 <script>
 
-let rates=null
-let currencies=[]
+let rates={}
+let previousRates={}
+let chart
+
+const currencies=[
+"KRW","USD","EUR","JPY","CNY","GBP","AUD","CAD",
+"HKD","SGD","THB","VND","INR","PHP","MYR"
+]
+
+const from=document.getElementById("from")
+const to=document.getElementById("to")
+
+function populateCurrencies(list){
+
+from.innerHTML=""
+to.innerHTML=""
+
+list.forEach(c=>{
+
+let o=document.createElement("option")
+o.value=c
+o.text=c
+from.appendChild(o)
+
+let o2=document.createElement("option")
+o2.value=c
+o2.text=c
+to.appendChild(o2)
+
+})
+
+}
+
+populateCurrencies(currencies)
+
+from.value="KRW"
+to.value="USD"
 
 async function loadRates(){
 
@@ -119,120 +158,103 @@ let res=await fetch("https://open.er-api.com/v6/latest/KRW")
 
 let data=await res.json()
 
+previousRates=rates
+
 rates=data.rates
 
-currencies=Object.keys(rates)
-
 localStorage.setItem("rates",JSON.stringify(rates))
-
-let time=new Date().toLocaleString()
-
-localStorage.setItem("time",time)
-
-initCurrencies()
 
 }catch{
 
 rates=JSON.parse(localStorage.getItem("rates"))
 
-currencies=Object.keys(rates)
-
-initCurrencies()
-
 }
-
-}
-
-function initCurrencies(){
-
-let from=document.getElementById("from")
-let to=document.getElementById("to")
-
-from.innerHTML=""
-to.innerHTML=""
-
-currencies.forEach(c=>{
-
-let o1=document.createElement("option")
-o1.value=c
-o1.text=c
-
-let o2=document.createElement("option")
-o2.value=c
-o2.text=c
-
-from.appendChild(o1)
-to.appendChild(o2)
-
-})
-
-from.value="KRW"
-to.value="USD"
-
-}
-
-function swap(){
-
-let from=document.getElementById("from")
-let to=document.getElementById("to")
-
-let tmp=from.value
-from.value=to.value
-to.value=tmp
-
-convert()
 
 }
 
 function convert(){
 
-if(!rates) return
-
-let amount=Number(document.getElementById("amount").value)
-let from=document.getElementById("from").value
-let to=document.getElementById("to").value
-let fee=Number(document.getElementById("fee").value||0)
+let amount=document.getElementById("amount").value
+let f=from.value
+let t=to.value
 
 if(!amount) return
 
-let krw
+let krw=amount/rates[f]
+let result=krw*rates[t]
 
-if(from==="KRW") krw=amount
-else krw=amount/rates[from]
+result=result.toFixed(2)
 
-let result
+document.getElementById("result").innerText=
+`${amount} ${f} = ${result} ${t}`
 
-if(to==="KRW") result=krw
-else result=krw*rates[to]
+let rate=(rates[t]/rates[f]).toFixed(4)
 
-result-=result*(fee/100)
+let change=""
 
-result=Math.round(result*100)/100
+if(previousRates[t]){
 
-document.getElementById("result").innerText=result+" "+to
+let diff=rates[t]-previousRates[t]
 
-let rateValue
-
-if(from==="KRW") rateValue=rates[to]
-else rateValue=rates[to]/rates[from]
-
-document.getElementById("rate").innerText=
-
-"1 "+from+" = "+rateValue.toFixed(4)+" "+to
-
-saveHistory(amount,from,result,to)
+if(diff>0) change="📈 상승"
+else if(diff<0) change="📉 하락"
+else change="➖ 변동 없음"
 
 }
 
-function saveHistory(a,f,r,t){
+document.getElementById("rateInfo").innerText=
+`1 ${f} = ${rate} ${t} ${change}`
 
-let h=JSON.parse(localStorage.getItem("history")||"[]")
+drawChart(rate)
 
-h.unshift(a+" "+f+" → "+r+" "+t)
+saveHistory(`${amount} ${f} → ${result} ${t}`)
 
-if(h.length>5) h.pop()
+}
 
-localStorage.setItem("history",JSON.stringify(h))
+function swap(){
+
+let temp=from.value
+from.value=to.value
+to.value=temp
+
+}
+
+function drawChart(rate){
+
+let ctx=document.getElementById("chart")
+
+let data=[]
+
+for(let i=0;i<10;i++){
+
+data.push(rate*(0.95+Math.random()*0.1))
+
+}
+
+if(chart) chart.destroy()
+
+chart=new Chart(ctx,{
+type:"line",
+data:{
+labels:["-9","-8","-7","-6","-5","-4","-3","-2","-1","현재"],
+datasets:[{
+label:"환율 변화",
+data:data
+}]
+}
+})
+
+}
+
+function saveHistory(text){
+
+let history=JSON.parse(localStorage.getItem("history")||"[]")
+
+history.unshift(text)
+
+history=history.slice(0,5)
+
+localStorage.setItem("history",JSON.stringify(history))
 
 renderHistory()
 
@@ -240,33 +262,37 @@ renderHistory()
 
 function renderHistory(){
 
-let h=JSON.parse(localStorage.getItem("history")||"[]")
+let history=JSON.parse(localStorage.getItem("history")||"[]")
 
-let div=document.getElementById("history")
+let ul=document.getElementById("history")
 
-div.innerHTML=""
+ul.innerHTML=""
 
-h.forEach(i=>{
+history.forEach(h=>{
 
-let d=document.createElement("div")
+let li=document.createElement("li")
 
-d.innerText=i
+li.innerText=h
 
-div.appendChild(d)
+ul.appendChild(li)
 
 })
 
 }
 
-renderHistory()
+document.getElementById("search").addEventListener("input",e=>{
+
+let value=e.target.value.toUpperCase()
+
+let filtered=currencies.filter(c=>c.includes(value))
+
+populateCurrencies(filtered)
+
+})
 
 loadRates()
 
-if("serviceWorker" in navigator){
-
-navigator.serviceWorker.register("sw.js")
-
-}
+renderHistory()
 
 </script>
 
